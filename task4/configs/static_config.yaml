@@ -1,0 +1,78 @@
+components_manager:
+    task_processors:
+        main-task-processor:
+            worker_threads: $worker-threads
+        fs-task-processor:
+            worker_threads: $worker-fs-threads
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: $server-port
+                task_processor: main-task-processor
+
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: $logger-level
+                    overflow_behavior: discard
+
+        dynamic-config:
+            fs-cache-path: ''
+            defaults-path: configs/dynamic_config_fallback.json
+
+        dns-client:
+            fs-task-processor: fs-task-processor
+
+        handler-ping:
+            path: /ping
+            method: GET
+            task_processor: main-task-processor
+            throttling_enabled: false
+            url_trailing_slash: strict-match
+
+        testsuite-support: {}
+
+        mongo-db-1:
+            dbconnection#env: MONGO_URI
+            maintenance_period: 15s
+
+        auth-component: {}
+
+        handler-auth-login:
+            path: /v1/auth/login
+            method: POST
+            task_processor: main-task-processor
+
+        handler-create-user:
+            path: /v1/users
+            method: POST
+            task_processor: main-task-processor
+
+        handler-search-users:
+            path: /v1/users/search
+            method: GET
+            task_processor: main-task-processor
+
+        handler-create-package:
+            path: /v1/packages
+            method: POST
+            task_processor: main-task-processor
+
+        handler-get-user-packages:
+            path: /v1/users/{id}/packages
+            method: GET
+            task_processor: main-task-processor
+
+        handler-create-delivery:
+            path: /v1/deliveries
+            method: POST
+            task_processor: main-task-processor
+
+        handler-get-deliveries:
+            path: /v1/deliveries
+            method: GET
+            task_processor: main-task-processor

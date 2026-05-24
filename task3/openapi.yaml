@@ -1,0 +1,401 @@
+openapi: 3.0.3
+info:
+  title: Delivery Service API
+  description: REST API сервис доставки посылок (Вариант 6)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: auth
+    description: Аутентификация
+  - name: users
+    description: Управление пользователями
+  - name: packages
+    description: Управление посылками
+  - name: deliveries
+    description: Управление доставками
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        login:
+          type: string
+          example: "alice"
+        first_name:
+          type: string
+          example: "Alice"
+        last_name:
+          type: string
+          example: "Smith"
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+
+    CreateUserRequest:
+      type: object
+      required: [login, password, first_name, last_name, email]
+      properties:
+        login:
+          type: string
+          example: "alice"
+        password:
+          type: string
+          example: "secret123"
+        first_name:
+          type: string
+          example: "Alice"
+        last_name:
+          type: string
+          example: "Smith"
+        email:
+          type: string
+          example: "alice@example.com"
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          example: "alice"
+        password:
+          type: string
+          example: "secret123"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        user_id:
+          type: string
+          format: uuid
+
+    Package:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+          example: "Книги"
+        weight:
+          type: string
+          example: "1.500"
+        status:
+          type: string
+          example: "created"
+        created_at:
+          type: string
+
+    CreatePackageRequest:
+      type: object
+      required: [description, weight]
+      properties:
+        description:
+          type: string
+          example: "Книги"
+        weight:
+          type: number
+          example: 1.5
+
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        recipient_id:
+          type: string
+          format: uuid
+        package_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: "pending"
+        address:
+          type: string
+          example: "ул. Ленина, д. 1, Москва"
+        created_at:
+          type: string
+
+    CreateDeliveryRequest:
+      type: object
+      required: [sender_id, recipient_id, package_id, address]
+      properties:
+        sender_id:
+          type: string
+          format: uuid
+        recipient_id:
+          type: string
+          format: uuid
+        package_id:
+          type: string
+          format: uuid
+        address:
+          type: string
+          example: "ул. Ленина, д. 1, Москва"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+paths:
+  /ping:
+    get:
+      summary: Health check
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+
+  /v1/users:
+    post:
+      summary: Создание нового пользователя
+      tags: [users]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              login: "alice"
+              password: "secret123"
+              first_name: "Alice"
+              last_name: "Smith"
+              email: "alice@example.com"
+      responses:
+        "201":
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+        "400":
+          description: Не переданы обязательные поля
+        "409":
+          description: Пользователь с таким логином уже существует
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/auth/login:
+    post:
+      summary: Вход в систему
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              login: "alice"
+              password: "secret123"
+      responses:
+        "200":
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                token: "550e8400-e29b-41d4-a716-446655440001"
+                user_id: "550e8400-e29b-41d4-a716-446655440000"
+        "400":
+          description: Не переданы обязательные поля
+        "401":
+          description: Неверный логин или пароль
+
+  /v1/users/search:
+    get:
+      summary: Поиск пользователей
+      tags: [users]
+      security: []
+      parameters:
+        - name: login
+          in: query
+          description: Поиск по точному логину
+          schema:
+            type: string
+          example: "alice"
+        - name: name
+          in: query
+          description: Маска имени (ILIKE)
+          schema:
+            type: string
+          example: "Ali"
+        - name: last_name
+          in: query
+          description: Маска фамилии (ILIKE), используется вместе с name
+          schema:
+            type: string
+          example: "Smi"
+      responses:
+        "200":
+          description: Список найденных пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+              example:
+                - id: "550e8400-e29b-41d4-a716-446655440000"
+                  login: "alice"
+                  first_name: "Alice"
+                  last_name: "Smith"
+                  email: "alice@example.com"
+        "400":
+          description: Не указан ни один параметр поиска
+
+  /v1/packages:
+    post:
+      summary: Создание посылки
+      tags: [packages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePackageRequest"
+            example:
+              description: "Книги"
+              weight: 1.5
+      responses:
+        "201":
+          description: Посылка создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        "401":
+          description: Требуется авторизация
+
+  /v1/users/{id}/packages:
+    get:
+      summary: Получение посылок пользователя
+      tags: [packages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID пользователя
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Список посылок пользователя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+        "401":
+          description: Требуется авторизация
+
+  /v1/deliveries:
+    post:
+      summary: Создание доставки
+      tags: [deliveries]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeliveryRequest"
+            example:
+              sender_id: "550e8400-e29b-41d4-a716-446655440000"
+              recipient_id: "550e8400-e29b-41d4-a716-446655440002"
+              package_id: "550e8400-e29b-41d4-a716-446655440003"
+              address: "ул. Ленина, д. 1, Москва"
+      responses:
+        "201":
+          description: Доставка создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        "400":
+          description: Не переданы обязательные поля или указаны несуществующие ID
+        "401":
+          description: Требуется авторизация
+    get:
+      summary: Получение информации о доставках
+      tags: [deliveries]
+      parameters:
+        - name: sender_id
+          in: query
+          description: UUID отправителя
+          schema:
+            type: string
+            format: uuid
+        - name: recipient_id
+          in: query
+          description: UUID получателя
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Список доставок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Delivery"
+        "400":
+          description: Не указан ни sender_id ни recipient_id
+        "401":
+          description: Требуется авторизация

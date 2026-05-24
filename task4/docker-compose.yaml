@@ -1,0 +1,50 @@
+services:
+  mongodb:
+    image: dockerhub.timeweb.cloud/library/mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: delivery_db
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo-init:
+    image: dockerhub.timeweb.cloud/library/mongo:7
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./validation.js:/init/validation.js
+      - ./data.js:/init/data.js
+    command: >
+      bash -c "
+        mongosh mongodb://mongodb:27017/delivery_db /init/validation.js &&
+        mongosh mongodb://mongodb:27017/delivery_db /init/data.js
+      "
+
+  app:
+    build: .
+    environment:
+      MONGO_URI: "mongodb://mongodb:27017/delivery_db"
+    ports:
+      - "8083:8080"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    environment:
+      SWAGGER_JSON: /openapi/openapi.yaml
+    volumes:
+      - ./openapi.yaml:/openapi/openapi.yaml:ro
+    ports:
+      - "8082:8080"
+
+volumes:
+  mongo_data:
